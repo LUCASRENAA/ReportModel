@@ -1,0 +1,54 @@
+name: Security Scan
+
+on:
+  push:
+    branches:
+      - main  # Altere para o nome da branch principal do seu repositório
+      - Dev  # Altere para o nome da branch principal do seu repositório
+
+jobs:
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9  # Altere para a versão do Python que você está usando
+      - name: Debug SECRET_KEY
+        run: echo ${{ secrets.secret }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requeriments.txt  # Altere para o nome do seu arquivo requeriments.txt, se necessário
+
+      - name: Run Bandit
+        run: |
+          pip install bandit
+          bandit -r . 
+
+      - name: Start Django development server
+        run: |
+          export SECRET_KEY=${{ secrets.secret }}
+          python manage.py migrate # Realize as migrações, se necessário
+          python manage.py runserver &
+
+      - uses: actions/checkout@v3
+      - name: OWASP ZAP Baseline Scan
+        # You may pin to the exact commit or the version.
+        # uses: zaproxy/action-baseline@7cea08522cd386f6c675776d5e4296aecf61f33b
+        uses: zaproxy/action-baseline@v0.7.0
+        with:
+          # Target URL
+          target: "http://127.0.0.1:8000"
+        continue-on-error: true
+
+      - name: Stop Django development server
+        run: |
+          pkill -f "python manage.py runserver"
+
+   
